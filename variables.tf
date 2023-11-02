@@ -39,6 +39,20 @@ variable "eventhub_namespace" {
       type         = optional(string, "SystemAssigned")
       identity_ids = optional(list(string), null)
     }), null)
+
+    sas_key_auth = optional(list(object({
+      name   = string
+      listen = optional(bool, false)
+      send   = optional(bool, false)
+      manage = optional(bool, false)
+    })), null)
+
+    rbac_auth = optional(list(object({
+      object_id = string
+      sender    = optional(bool, false)
+      receiver  = optional(bool, false)
+      owner     = optional(bool, false)
+    })), null)
   })
 }
 
@@ -58,12 +72,11 @@ variable "network_rules" {
 variable "eventhubs" {
   type = list(object({
     name              = string
-    namespace_name    = string
-    partition_count   = optional(number, 3)
+    partition_count   = optional(number, 1)
     message_retention = optional(number, 3)
     status            = optional(string, "Active")
 
-    capture_descriptioncapture_description = optional(object({
+    capture_description = optional(object({
       encoding            = optional(string, "Avro")
       interval_in_seconds = optional(number, 300)
       size_limit_in_bytes = optional(number, 314572800)
@@ -75,6 +88,20 @@ variable "eventhubs" {
         storage_account_id  = string
       })
     }), null)
+
+    sas_key_auth = optional(list(object({
+      name   = string
+      listen = optional(bool, false)
+      send   = optional(bool, false)
+      manage = optional(bool, false)
+    })), null)
+
+    rbac_auth = optional(list(object({
+      object_id = string
+      sender    = optional(bool, false)
+      receiver  = optional(bool, false)
+      owner     = optional(bool, false)
+    })), null)
   }))
 
   default = null

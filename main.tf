@@ -32,8 +32,8 @@ resource "azurerm_eventhub_namespace" "default" {
   dynamic "network_rulesets" {
     for_each = var.network_rules == null ? [] : [var.network_rules]
     content {
-      default_action                 = network_rulesets.value.default_action
-      public_network_access_enabled  = var.network_rules.public_network_access_enabled
+      default_action                 = var.network_rules.subnet_ids == null && var.network_rules.allowed_ips == null ? "Allow" : network_rulesets.value.default_action
+      public_network_access_enabled  = network_rulesets.value.public_network_access_enabled
       trusted_service_access_enabled = network_rulesets.value.trusted_service_access_enabled
 
       dynamic "virtual_network_rule" {
@@ -55,9 +55,18 @@ resource "azurerm_eventhub_namespace" "default" {
   }
 }
 
-###########
-# Cluster
-###########
+resource "azurerm_eventhub_namespace_authorization_rule" "default" {
+  for_each            = var.eventhub_namespace.sas_key_auth == null ? {} : { for key, value in var.eventhub_namespace.sas_key_auth : value.name => value }
+  name                = each.value.name
+  namespace_name      = azurerm_eventhub_namespace.default.name
+  resource_group_name = var.resource_group_name
+
+  listen = each.value.manage ? true : each.value.listen
+  send   = each.value.manage ? true : each.value.send
+  manage = each.value.manage
+}
+
+#### RBAC for namespace and eventhub
 
 ###########
 # Eventhub
@@ -73,23 +82,47 @@ resource "azurerm_eventhub" "default" {
   status              = each.value.status
 
   dynamic "capture_description" {
-    for_each = each.value.capture_descriptioncapture_description == null ? [] : [each.value.capture_descriptioncapture_description]
+    for_each = each.value.capture_description == null ? [] : [each.value.capture_description]
 
     content {
       enabled             = true
-      encoding            = capture_descriptioncapture_description.value.encoding
-      interval_in_seconds = capture_descriptioncapture_description.value.interval_in_seconds
-      size_limit_in_bytes = capture_descriptioncapture_description.value.size_limit_in_bytes
-      skip_empty_archives = capture_descriptioncapture_description.value.skip_empty_archives
+      encoding            = capture_description.value.encoding
+      interval_in_seconds = capture_description.value.interval_in_seconds
+      size_limit_in_bytes = capture_description.value.size_limit_in_bytes
+      skip_empty_archives = capture_description.value.skip_empty_archives
 
       destination {
-        name                = capture_descriptioncapture_description.value.destination.name
-        archive_name_format = capture_descriptioncapture_description.value.destination.archive_name_format
-        blob_container_name = capture_descriptioncapture_description.value.destination.blob_container_name
-        storage_account_id  = capture_descriptioncapture_description.value.destination.storage_account_id
+        name                = capture_description.value.destination.name
+        archive_name_format = capture_description.value.destination.archive_name_format
+        blob_container_name = capture_description.value.destination.blob_container_name
+        storage_account_id  = capture_description.value.destination.storage_account_id
       }
     }
   }
+}
+
+locals {
+  sas_key_auth_rules = flatten([for key, value in var.eventhubs : [
+    for auth_key, auth_value in value.sas_key_auth : {
+      eventhub_name = value.name
+      name          = auth_value.name
+      listen        = auth_value.listen
+      send          = auth_value.send
+      manage        = auth_value.manage
+    }
+  ] if value.sas_key_auth != null])
+}
+
+resource "azurerm_eventhub_authorization_rule" "default" {
+  for_each            = var.eventhubs == null ? {} : { for key, value in local.sas_key_auth_rules : "${value.eventhub_name}-${value.name}" => value }
+  name                = each.value.name
+  namespace_name      = azurerm_eventhub_namespace.default.name
+  eventhub_name       = azurerm_eventhub.default[each.value.eventhub_name].name
+  resource_group_name = var.resource_group_name
+
+  listen = each.value.manage ? true : each.value.listen
+  send   = each.value.manage ? true : each.value.send
+  manage = each.value.manage
 }
 
 #######

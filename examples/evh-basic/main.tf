@@ -16,28 +16,39 @@ resource "random_string" "default" {
   min_lower = 6
 }
 
-data "http" "myip" {
-  url = "http://ipv4.icanhazip.com"
-}
-
 module "eventhub" {
   source              = "../../"
   resource_group_name = azurerm_resource_group.default.name
 
   eventhub_namespace = {
-    name = local.prefix
-    #public_network_access_enabled = false
+    name                     = local.prefix
+    auto_inflate_enabled     = true
+    maximum_throughput_units = 3
+
+    sas_key_auth = [
+      { name = "app1", send = true },
+      { name = "app2", manage = true }
+    ]
   }
 
-  # network_rules = {
-  #   #trusted_service_access_enabled = true 
-  #   allowed_ips = [chomp(data.http.myip.response_body)]
-  # }
+  network_rules = {
+    public_network_access_enabled = true
+  }
 
-  # eventhub = {
-  #   name           = local.prefix
-  #   namespace_name = null
-  # }
+  eventhubs = [
+    {
+      name = "${local.prefix}-1"
+      sas_key_auth = [
+        { name = "app3", send = true },
+        { name = "app4", manage = true },
+        { name = "app5", listen = true }
+      ]
+    },
+    {
+      name = "${local.prefix}-2"
+      #partition_count = 2
+    }
+  ]
 }
 
 output "eventhub" {
