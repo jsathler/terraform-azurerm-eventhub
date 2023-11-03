@@ -1,6 +1,5 @@
 locals {
   prefix = basename(path.cwd)
-  #prefix = "${basename(path.cwd)}-${random_string.default.result}"
 }
 
 provider "azurerm" {
@@ -61,7 +60,7 @@ module "eventhub" {
   source              = "../../"
   resource_group_name = azurerm_resource_group.default.name
 
-  eventhub_namespace = {
+  namespace = {
     name = local.prefix
   }
 
@@ -72,7 +71,7 @@ module "eventhub" {
   ]
 
   private_endpoint = {
-    name                           = "${module.eventhub.name}-namespace"
+    name                           = "${module.eventhub.namespace_name}-namespace"
     subnet_id                      = module.vnet.subnet_ids.default-snet
     application_security_group_ids = [azurerm_application_security_group.default.id]
     private_dns_zone_id            = module.private-zone.private_zone_ids["privatelink.servicebus.windows.net"]
