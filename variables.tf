@@ -10,6 +10,7 @@ variable "resource_group_name" {
   type        = string
   nullable    = false
 }
+
 variable "tags" {
   description = "Tags to be applied to resources."
   type        = map(string)
@@ -23,7 +24,7 @@ variable "name_sufix_append" {
   nullable    = false
 }
 
-variable "eventhub_namespace" {
+variable "namespace" {
   type = object({
     name                         = string
     sku                          = optional(string, "Standard")
@@ -54,6 +55,30 @@ variable "eventhub_namespace" {
       owner     = optional(bool, false)
     })), null)
   })
+
+  nullable = false
+
+  validation {
+    condition     = can(index(["Basic", "Standard", "Premium"], var.namespace.sku) >= 0)
+    error_message = "Valid values are: Basic, Standard and Premium"
+  }
+
+  validation {
+    condition     = var.namespace.maximum_throughput_units >= 1 && var.namespace.maximum_throughput_units <= 40
+    error_message = "namespace.maximum_throughput_units should be between 1 and 40"
+  }
+
+  validation {
+    condition     = can(index(["1.0", "1.1", "1.2"], var.namespace.minimum_tls_version) >= 0)
+    error_message = "Valid values are: 1.0, 1.1 and 1.2"
+  }
+
+  validation {
+    condition = var.namespace.rbac_auth == null ? true : alltrue([for rbac in var.namespace.rbac_auth :
+      (rbac.sender && rbac.receiver == false && rbac.owner == false) || (rbac.sender == false && rbac.receiver && rbac.owner == false) || (rbac.sender == false && rbac.receiver == false && rbac.owner)
+    ])
+    error_message = "sender, receiver or owner are mutual exclusive in namespace.rbac_auth."
+  }
 }
 
 variable "network_rules" {
@@ -67,6 +92,11 @@ variable "network_rules" {
 
   default  = {}
   nullable = false
+
+  validation {
+    condition     = can(index(["Allow", "Deny"], var.network_rules.default_action) >= 0)
+    error_message = "Valid values for network_rules.default_action are: Allow and Deny"
+  }
 }
 
 variable "eventhubs" {
@@ -83,11 +113,16 @@ variable "eventhubs" {
       skip_empty_archives = optional(bool, false)
       destination = object({
         name                = optional(string, "EventHubArchive.AzureBlockBlob")
-        archive_name_format = optional(string, "{Namespace}/{EventHub}/{PartitionId}/{Year}/{Month}/{Day}/{Hour}/{Minute}/{Second}")
+        archive_name_format = string
         blob_container_name = optional(string, "eventhub")
         storage_account_id  = string
       })
     }), null)
+
+    consumer_groups = optional(list(object({
+      name          = string
+      user_metadata = optional(string, null)
+    })), null)
 
     sas_key_auth = optional(list(object({
       name   = string
@@ -105,6 +140,24 @@ variable "eventhubs" {
   }))
 
   default = null
+
+  validation {
+    condition     = var.eventhubs == null ? true : alltrue([for eventhub in var.eventhubs : can(index(["Active", "Disabled", "SendDisabled"], eventhub.status) >= 0)])
+    error_message = "Allowed values for eventhubs.status are Active, Disabled and SendDisabled"
+  }
+
+  validation {
+    condition     = var.eventhubs == null ? true : alltrue([for eventhub in var.eventhubs : eventhub.capture_description == null ? true : can(index(["Avro", "AvroDeflate"], eventhub.capture_description.encoding) >= 0)])
+    error_message = "Allowed values for eventhubs.status are Avro and AvroDeflate"
+  }
+
+  validation {
+    condition = var.eventhubs == null ? true : alltrue([for eventhub in var.eventhubs : alltrue([
+      for rbac in eventhub.rbac_auth :
+      (rbac.sender && rbac.receiver == false && rbac.owner == false) || (rbac.sender == false && rbac.receiver && rbac.owner == false) || (rbac.sender == false && rbac.receiver == false && rbac.owner)
+    ]) if eventhub.rbac_auth != null])
+    error_message = "sender, receiver or owner are mutual exclusive in eventhubs.rbac_auth."
+  }
 }
 
 variable "private_endpoint" {
