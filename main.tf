@@ -171,7 +171,7 @@ resource "azurerm_role_assignment" "eventhub" {
 module "private-endpoint" {
   for_each            = var.private_endpoint == null ? [] : toset(["namespace"])
   source              = "jsathler/private-endpoint/azurerm"
-  version             = "0.0.2"
+  version             = "0.0.4"
   location            = var.location
   resource_group_name = var.resource_group_name
   name_sufix_append   = var.name_sufix_append
