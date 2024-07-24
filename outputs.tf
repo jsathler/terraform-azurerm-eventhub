@@ -53,3 +53,8 @@ output "eventhub_consumer_group_ids" {
     }
   ], null)
 }
+
+output "private_ip_address" {
+  description = "Private endpoint address"
+  value       = module.private-endpoint["namespace"].private_ip_address
+}
