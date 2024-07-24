@@ -61,6 +61,7 @@ Supported Azure services:
 | <a name="output_namespace_authorization"></a> [namespace\_authorization](#output\_namespace\_authorization) | Evenhub namespace authorization keys and connection strings |
 | <a name="output_namespace_id"></a> [namespace\_id](#output\_namespace\_id) | Evenhub namespace ID |
 | <a name="output_namespace_name"></a> [namespace\_name](#output\_namespace\_name) | Evenhub namespace Name |
+| <a name="output_private_ip_address"></a> [private\_ip\_address](#output\_private\_ip\_address) | Private endpoint address |
 
 ## Examples
 ```hcl
